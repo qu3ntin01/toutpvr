@@ -1,0 +1,9 @@
+# ToutPVR — la racine web doit être public/. Ce fichier protège le dépôt si le vhost pointe ici par erreur.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+<FilesMatch "\.(key|lock|sqlite|log|json|md)$">
+    Require all denied
+</FilesMatch>

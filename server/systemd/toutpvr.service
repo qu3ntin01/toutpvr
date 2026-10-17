@@ -1,0 +1,23 @@
+[Unit]
+Description=ToutPVR — serveur de vidéosurveillance
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=toutpvr
+Group=toutpvr
+Environment=TP_CONFIG=/etc/toutpvr/config.yaml
+Environment=TP_DATA_DIR=/var/lib/toutpvr
+ExecStart=/usr/local/bin/toutpvr start
+Restart=always
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=30
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/toutpvr /etc/toutpvr
+
+[Install]
+WantedBy=multi-user.target

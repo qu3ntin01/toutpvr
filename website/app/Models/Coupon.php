@@ -1,0 +1,1 @@
+<?php declare(strict_types=1);namespace App\Models;final class Coupon extends Model{protected static string $table='coupons';protected static array $json=['plan_slugs'];protected static bool $timestamps=false;public static function findByCode(string $A):?array{return static::findBy('code',strtoupper(trim($A)));}}

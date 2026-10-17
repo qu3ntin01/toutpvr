@@ -1,0 +1,8 @@
+.env
+*.sqlite
+*.db
+data/
+BUILD-INFO.json
+README-install.md
+install.*
+systemd/

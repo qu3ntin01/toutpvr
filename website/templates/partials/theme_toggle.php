@@ -1,0 +1,1 @@
+<button class="tp-btn tp-btn--ghost tp-btn--icon" type="button" data-theme-toggle aria-label="<?php echo e(t('common.toggle_theme'));?>" title="<?php echo e(t('common.toggle_theme'));?>"><span class="tp-theme-icon tp-theme-icon--dark"><?php echo icon('sun',18);?></span><span class="tp-theme-icon tp-theme-icon--light"><?php echo icon('moon',18);?></span></button>

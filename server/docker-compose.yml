@@ -1,0 +1,77 @@
+# ============================================================================
+#  ToutPVR 1.0.0-dev.1 — déploiement Docker (distribution compilée)
+#
+#  Démarrage rapide (SQLite, données dans un volume) :
+#      docker compose up -d
+#      → http://localhost:8080  (admin / mot de passe de TP_ADMIN_PASSWORD)
+#
+#  Avec MariaDB :
+#      docker compose --profile mysql up -d
+#      (décommentez TP_DB_URL ci-dessous ou exportez-la dans un fichier .env)
+#
+#  Variables : copiez .env.example en .env et ajustez (TP_ADMIN_PASSWORD, TP_PORT, TP_LANG…).
+#  Caméras USB : ajoutez  devices: ["/dev/video0:/dev/video0"].
+#  Découverte ONVIF (multicast) : préférez  network_mode: host  (Linux uniquement).
+# ============================================================================
+services:
+  toutpvr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${TP_PYTHON_VERSION:-3.12}
+    image: toutpvr/server:${TP_VERSION:-1.0.0-dev.1}
+    container_name: toutpvr
+    restart: unless-stopped
+    ports:
+      - "${TP_PORT:-8080}:8080"
+    environment:
+      TP_ADMIN_USER: ${TP_ADMIN_USER:-admin}
+      TP_ADMIN_PASSWORD: ${TP_ADMIN_PASSWORD:-ChangeMe12345!}
+      TP_LANG: ${TP_LANG:-fr}
+      TP_PORTAL_URL: ${TP_PORTAL_URL:-https://toutpvr.example}
+      TP_LICENSE_PUBLIC_KEY: ${TP_LICENSE_PUBLIC_KEY:-}
+      TP_RECORDINGS_QUOTA_GB: ${TP_RECORDINGS_QUOTA_GB:-100}
+      TP_DEMO: ${TP_DEMO:-false}
+      TP_SECRET_KEY: ${TP_SECRET_KEY:-}
+      TZ: ${TZ:-Europe/Paris}
+      # Base MariaDB (profil mysql) :
+      # TP_DB_URL: mysql+pymysql://toutpvr:${TP_DB_PASSWORD:-toutpvr}@db/toutpvr
+    volumes:
+      - toutpvr-data:/data
+      # Enregistrements sur un disque dédié :
+      # - /mnt/nvr:/data/recordings
+    # devices:
+    #   - /dev/video0:/dev/video0
+    # network_mode: host
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx,sys; sys.exit(0 if httpx.get('http://127.0.0.1:8080/health',timeout=3).status_code==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }
+
+  db:
+    image: mariadb:11
+    container_name: toutpvr-db
+    profiles: ["mysql"]
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: toutpvr
+      MARIADB_USER: toutpvr
+      MARIADB_PASSWORD: ${TP_DB_PASSWORD:-toutpvr}
+      MARIADB_ROOT_PASSWORD: ${TP_DB_ROOT_PASSWORD:-root}
+    volumes:
+      - toutpvr-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  toutpvr-data:
+  toutpvr-db:

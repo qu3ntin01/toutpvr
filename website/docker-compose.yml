@@ -1,0 +1,60 @@
+# ============================================================================
+#  ToutPVR — site vitrine, boutique et portail de licences
+#
+#  docker compose up -d
+#    → http://localhost:8088  (installeur web sur /install/ au premier démarrage,
+#      ou installation automatique si TP_SITE_AUTO_INSTALL=1 dans .env)
+#
+#  Variables (fichier .env) : TP_SITE_PORT, TP_SITE_URL, TP_SITE_ADMIN_EMAIL, TP_SITE_ADMIN_PASSWORD,
+#  TP_SITE_DB_PASSWORD, TP_SITE_AUTO_INSTALL. SQLite : TP_SITE_DB_DRIVER=sqlite et profil « mysql » inutile.
+#  En production, placez un reverse proxy TLS (Caddy, Traefik, nginx) devant le port 80 du conteneur.
+# ============================================================================
+services:
+  website:
+    build: .
+    image: toutpvr/website:${TP_SITE_VERSION:-1.0.0-dev.1}
+    container_name: toutpvr-website
+    restart: unless-stopped
+    ports:
+      - "${TP_SITE_PORT:-8088}:80"
+    environment:
+      TP_SITE_AUTO_INSTALL: ${TP_SITE_AUTO_INSTALL:-1}
+      TP_SITE_URL: ${TP_SITE_URL:-http://localhost:8088}
+      TP_SITE_ADMIN_EMAIL: ${TP_SITE_ADMIN_EMAIL:-admin@example.com}
+      TP_SITE_ADMIN_PASSWORD: ${TP_SITE_ADMIN_PASSWORD:-ChangeMe12345!}
+      TP_SITE_DB_DRIVER: ${TP_SITE_DB_DRIVER:-mysql}
+      TP_SITE_DB_HOST: db
+      TP_SITE_DB_NAME: toutpvr
+      TP_SITE_DB_USER: toutpvr
+      TP_SITE_DB_PASSWORD: ${TP_SITE_DB_PASSWORD:-toutpvr}
+      TP_SITE_CRON: "1"
+      TZ: ${TZ:-Europe/Paris}
+    volumes:
+      - website-storage:/var/www/toutpvr/storage
+      - website-config:/var/www/toutpvr/config
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+
+  db:
+    image: mariadb:11
+    container_name: toutpvr-website-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: toutpvr
+      MARIADB_USER: toutpvr
+      MARIADB_PASSWORD: ${TP_SITE_DB_PASSWORD:-toutpvr}
+      MARIADB_ROOT_PASSWORD: ${TP_SITE_DB_ROOT_PASSWORD:-root}
+    volumes:
+      - website-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  website-storage:
+  website-config:
+  website-db:

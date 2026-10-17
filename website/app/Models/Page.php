@@ -1,0 +1,1 @@
+<?php declare(strict_types=1);namespace App\Models;final class Page extends Model{protected static string $table='pages';protected static array $json=['title','blocks','meta_title','meta_description'];public static function findBySlug(string $G,bool $g=true):?array{$i=static::query()->where('slug',$G);if($g){$i->where('is_published',1);}return static::cast($i->first());}}
