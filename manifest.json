@@ -2,8 +2,8 @@
   "product": "ToutPVR",
   "version": "1.0.0-dev.1",
   "channel": "dev",
-  "source_commit": "cd1dd1d8780387668d28ebf38f8e1aaca37ede55",
-  "built_at": "2026-10-17T11:10:19Z",
+  "source_commit": "9c40ec38066c2830fdad67ea5d403255adb777f6",
+  "built_at": "2026-10-17T11:14:05Z",
   "license_key_kind": "dev",
   "files": {
     "CHANGELOG.md": "792e9f3d8352ab52b21c1d62c4b893175970b80c1623f8b69821af2dbf6491c8",
@@ -12,7 +12,7 @@
     "VERSION": "2db9703cfe6378cbc260114dd3856d6cfb60fd590e96b04704f82d13d4f61ce3",
     "server/.dockerignore": "8474681f75f168b2372540001dea4c31e67717cba1b25b819e3a4282c822e687",
     "server/.env.example": "813ad9803f2339f3db8bf1457c7c190765245892b87b496f695cbb7f509bbddf",
-    "server/BUILD-INFO.json": "f8056cf3dc7084eb83f65abf2268bfadb8b73b6e53e583586b7e4d8118ae9af0",
+    "server/BUILD-INFO.json": "b40b43fb05a3bf28c890dfea08d8e989b70ba7f6d2f3f622ada1032468ddb0e4",
     "server/Dockerfile": "d84a4dd410938002f571be39253b036b7525bc67aadf0fd9d3180311636049e7",
     "server/LICENSE-COMMERCIAL.md": "8563416814b732595bc8a6764e7654065e4645d326c05a4efe6e9ae14ad68b33",
     "server/README-install.md": "ac3937d18d539a70c55ad052b65cf909b7b3acd4a0929eb15173fdb27ea51e19",
@@ -30,7 +30,7 @@
     "website/.dockerignore": "17dcb2470046433ed599d03d5b6c3bf283e936d52d525873692ac3e1e788acfc",
     "website/.env.example": "200b681870e99696a80df8b95b5301b132d01090d50163dd1a6f0ffc300a9600",
     "website/.htaccess": "219fb6889c2a9554f2efbb809a651d8a5a626ef54cf2ed5016341e9f6590b686",
-    "website/BUILD-INFO.json": "f66a8cd3e23b9b092dde9d652808bebe696f9088ab39f4d817e4a586c6c7cfb2",
+    "website/BUILD-INFO.json": "cf85185f9a4bed7e158a95f48ebd5dd3f689aa85b5d44e115f8b825ae8263050",
     "website/Dockerfile": "5fab95dff5f31411dd040395f53bf2ae8cbd491300b2fb0ea045489fa8a3369d",
     "website/README-install.md": "63423d0918b5869ddfa6726d925f99ef9b343627937a21c92dd557f8a723aede",
     "website/VERSION": "2db9703cfe6378cbc260114dd3856d6cfb60fd590e96b04704f82d13d4f61ce3",
@@ -257,6 +257,6 @@
     "website/templates/partials/status_badge.php": "8117e10927c49269090a5fd6ec988e0d7f3c16620345c9f09276634f7b9cca09",
     "website/templates/partials/theme_toggle.php": "5ca720c931fa165bb04682f96a31479442d089811c4bfa29808228a27857761e"
   },
-  "sha256": "eed7571363e7ab1262db52338c15161917879da02d6c21fe345ccde190a20db5",
-  "signature": "2Y5IgaDn5BdQQD/QR9fSteZMWT6d4ZW4MlyHXTmluOkRTlGfw//cCR678KZKDGU2f2rY+B98lLkk468+9s2eDA=="
+  "sha256": "d3f4a20902c39f1b87ba6562f5d2599698e242e72081013898e170debab06d65",
+  "signature": "T1JkG1wfnLqRYu7skBdotPhwKEm2NXgDnD4dA9BEVNc5Sy3kgNtWKgg78HtsiE3C8kmWme9OsbgGTatTKKoCCw=="
 }

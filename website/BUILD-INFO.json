@@ -1,8 +1,8 @@
 {
   "product": "toutpvr-website",
   "version": "1.0.0-dev.1",
-  "build_date": "2026-10-17T11:10:19Z",
-  "source_commit": "cd1dd1d8780387668d28ebf38f8e1aaca37ede55",
+  "build_date": "2026-10-17T11:14:05Z",
+  "source_commit": "9c40ec38066c2830fdad67ea5d403255adb777f6",
   "tools": {
     "php": "8.4.19",
     "node": "v22.22.2",

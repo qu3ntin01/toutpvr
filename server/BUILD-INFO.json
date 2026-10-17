@@ -11,7 +11,7 @@
     "linux-x86_64"
   ],
   "license_key_kind": "dev",
-  "build_date": "2026-10-17T11:10:14Z",
+  "build_date": "2026-10-17T11:14:00Z",
   "tools": {
     "cython": "3.1.8",
     "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
