@@ -1,7 +1,7 @@
 {
   "product": "ToutPVR server",
-  "version": "1.0.0-dev.1",
-  "version_pep440": "1.0.0.dev1",
+  "version": "1.0.0-dev.2",
+  "version_pep440": "1.0.0.dev2",
   "python_tags": [
     "cp311",
     "cp312"
@@ -11,7 +11,7 @@
     "linux-x86_64"
   ],
   "license_key_kind": "dev",
-  "build_date": "2026-10-17T11:14:00Z",
+  "build_date": "2026-10-17T18:51:30Z",
   "tools": {
     "cython": "3.1.8",
     "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
@@ -116,55 +116,55 @@
     "css": 3,
     "html": 1,
     "json": 41,
-    "bytes_before": 1802470,
-    "bytes_after": 1710629
+    "bytes_before": 1802492,
+    "bytes_after": 1710730
   },
   "wheels": [
     {
-      "file": "wheels/toutpvr-1.0.0.dev1-cp311-cp311-linux_x86_64.whl",
+      "file": "wheels/toutpvr-1.0.0.dev2-cp311-cp311-linux_x86_64.whl",
       "platform": "linux-x86_64",
       "python": "cp311",
-      "sha256": "8af17c311025283cdb92f2034c410c1e0d15c260e7d5691fb83696fc3e5e5929",
-      "size": 4123549
+      "sha256": "f038e14dbfce9d3f19bc68f1f08644227bb758af7ae57383a347546783b7cc42",
+      "size": 4123576
     },
     {
-      "file": "wheels/toutpvr-1.0.0.dev1-cp312-cp312-linux_x86_64.whl",
+      "file": "wheels/toutpvr-1.0.0.dev2-cp312-cp312-linux_x86_64.whl",
       "platform": "linux-x86_64",
       "python": "cp312",
-      "sha256": "442e1c83c086ac4d13c7096fc19405e18bf4bcb0853f82e88c22529037bcf80d",
-      "size": 4087073
+      "sha256": "ef0f2ef86ed66a2f2e2c5ada5f09d1d14d9dab53b16dd3da292cb9684286a709",
+      "size": 4087106
     }
   ],
   "update_artifacts": [
     {
       "platform": "linux-x86_64",
       "python": "cp311",
-      "file": "../updates/toutpvr-1.0.0-dev.1-linux-x86_64-cp311.tar.gz",
-      "sha256": "d387618ea5a1b9d274d39f4a501e7ad787ec618ab5836d75b823f46eb5254b72",
-      "size": 4033509
+      "file": "../updates/toutpvr-1.0.0-dev.2-linux-x86_64-cp311.tar.gz",
+      "sha256": "1138526127ee3c6c6d5a6bee38c7b9a58901d206c2dda99581c4f51dfeda66c0",
+      "size": 4033523
     },
     {
       "platform": "linux-x86_64",
       "python": "cp312",
-      "file": "../updates/toutpvr-1.0.0-dev.1-linux-x86_64-cp312.tar.gz",
-      "sha256": "7349e81a76ed9778885c968c4af9afc4f5865367ca7e818411e73e40fad9df82",
-      "size": 3999135
+      "file": "../updates/toutpvr-1.0.0-dev.2-linux-x86_64-cp312.tar.gz",
+      "sha256": "9ecaf20bd10059940c7b499a0ff6f7410f7295562acdc8886410355495cd758e",
+      "size": 3999169
     }
   ],
   "files": {
     ".dockerignore": "8474681f75f168b2372540001dea4c31e67717cba1b25b819e3a4282c822e687",
     ".env.example": "813ad9803f2339f3db8bf1457c7c190765245892b87b496f695cbb7f509bbddf",
-    "Dockerfile": "d84a4dd410938002f571be39253b036b7525bc67aadf0fd9d3180311636049e7",
+    "Dockerfile": "4430bcef94b053b177fc824fb7326728f1371ffa222523a1d4a6e8f429a06fce",
     "LICENSE-COMMERCIAL.md": "8563416814b732595bc8a6764e7654065e4645d326c05a4efe6e9ae14ad68b33",
-    "README-install.md": "ac3937d18d539a70c55ad052b65cf909b7b3acd4a0929eb15173fdb27ea51e19",
+    "README-install.md": "86a3c3ed69ace09d022f06e907150beb2b3d150621724c0635e5a69bf5af9e74",
     "docker/entrypoint.sh": "cf95ee1a779c7e376e70f8e77461f11891bf4cf5f2049e983124beed479dd330",
-    "docker-compose.yml": "d6d74b0a6d2f406a234e64e6f1da0d0e5f07f5b2395030beea2b86015c91b76b",
+    "docker-compose.yml": "8bcdf51cf010d76d7311eb99cdf51736b7a75a4aa9e74dc9a813e1627475a539",
     "install.bat": "8c96b9b5d1a875da042ae8a24a5adf5656051949070cf8c57ed5c73ffd6e7a4b",
-    "install.ps1": "c6fc668d149efbfec9b4dade5deffb9727b6059b4edac244ef72e633d21cdc23",
-    "install.sh": "24304e0928fb1930fd67a99d0424a9acb8be5d44e30904cf9b7c043b3988cfa4",
+    "install.ps1": "c441c1d06be51671db7799582ae3440a40a2bed6561136d880fa0f42df590776",
+    "install.sh": "98930deed1018555d2b9caeffd0bdc3637214fc527427e4a9632bc18326f4f49",
     "requirements.txt": "70052bd2266d007b243a5c3eed8bcaab5ab8f352c47397716dcc0785fe892f09",
     "systemd/toutpvr.service": "40c0fa244a88c2f49364f4181620b97ffc5a5c45406182995f5af7f49c91892e",
-    "wheels/toutpvr-1.0.0.dev1-cp311-cp311-linux_x86_64.whl": "8af17c311025283cdb92f2034c410c1e0d15c260e7d5691fb83696fc3e5e5929",
-    "wheels/toutpvr-1.0.0.dev1-cp312-cp312-linux_x86_64.whl": "442e1c83c086ac4d13c7096fc19405e18bf4bcb0853f82e88c22529037bcf80d"
+    "wheels/toutpvr-1.0.0.dev2-cp311-cp311-linux_x86_64.whl": "f038e14dbfce9d3f19bc68f1f08644227bb758af7ae57383a347546783b7cc42",
+    "wheels/toutpvr-1.0.0.dev2-cp312-cp312-linux_x86_64.whl": "ef0f2ef86ed66a2f2e2c5ada5f09d1d14d9dab53b16dd3da292cb9684286a709"
   }
 }

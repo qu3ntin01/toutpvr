@@ -42,6 +42,10 @@ ADMIN_PASSWORD="${TP_ADMIN_PASSWORD:-}"
 LICENSE_KEY="${TP_LICENSE:-}"
 PORTAL_URL="${TP_PORTAL_URL:-https://toutpvr.example}"
 SOURCE="${TP_SOURCE:-}"
+# Dépôts de diffusion : GitLab (repo.qu3ntin.com) en premier, GitHub en secours.
+REPO_PRIMARY="${TP_REPO_URL:-https://repo.qu3ntin.com/toutpvr/toutpvr}"
+REPO_FALLBACK="${TP_REPO_FALLBACK_URL:-https://github.com/qu3ntin01/toutpvr}"
+CHANNEL="${TP_CHANNEL:-main}"   # main = versions finales, dev = versions en développement
 DB_KIND="sqlite"
 DB_URL=""
 ASSUME_YES=0
@@ -88,6 +92,8 @@ Options principales :
   --db sqlite|mysql         Base de données (défaut : sqlite)
   --db-url URL              URL SQLAlchemy MySQL (mysql+pymysql://user:mdp@hote/toutpvr)
   --source CHEMIN|URL       Dossier source, archive .tar.gz locale ou URL (défaut : dossier du script)
+  --channel main|dev        Sans --source : télécharge la dernière version finale (main) ou de développement (dev)
+                            depuis repo.qu3ntin.com (GitLab), avec GitHub en secours
   --prefix DIR              Dossier d'installation de l'environnement Python (défaut : $PREFIX)
   --data-dir DIR            Dossier des données (défaut : $DATA_DIR)
   --config-dir DIR          Dossier de la configuration (défaut : $CONFIG_DIR)
@@ -110,6 +116,7 @@ EOF
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes) ASSUME_YES=1 ;;
+    --channel) CHANNEL="$2"; shift ;;
     --port) PORT="$2"; shift ;;
     --lang) LANG_CODE="$2"; shift ;;
     --admin-user) ADMIN_USER="$2"; shift ;;
@@ -318,13 +325,26 @@ locate_package_root() {
   return 1
 }
 
+# Télécharge la branche $CHANNEL du dépôt de diffusion : GitLab d'abord, GitHub en secours. Affiche l'URL retenue.
+download_release() {
+  local u
+  for u in "$REPO_PRIMARY/-/archive/$CHANNEL/toutpvr-$CHANNEL.tar.gz" "$REPO_FALLBACK/archive/refs/heads/$CHANNEL.tar.gz"; do
+    if [ "$DRY_RUN" = 1 ]; then echo "$u"; return 0; fi
+    if curl -fsSIL --max-time 20 "$u" >/dev/null 2>&1; then echo "$u"; return 0; fi
+    warn "Dépôt injoignable : $u" >&2
+  done
+  return 1
+}
+
 resolve_source() {
   step "Source de $PRODUCT"
   if [ -z "$SOURCE" ]; then
     if compgen -G "$SCRIPT_DIR/wheels/toutpvr-*.whl" >/dev/null || { [ -f "$SCRIPT_DIR/pyproject.toml" ] && [ -d "$SCRIPT_DIR/toutpvr" ]; }; then
       SOURCE="$SCRIPT_DIR"
     else
-      die "Aucune source trouvée : lancez le script depuis le dossier server/ (ou depuis l'arbre de diffusion contenant wheels/) ou passez --source <dossier|archive.tar.gz|URL>."
+      case "$CHANNEL" in main|dev) ;; *) die "--channel : main ou dev" ;; esac
+      SOURCE="$(download_release || true)"
+      [ -n "$SOURCE" ] || die "Aucune source trouvée : ni à côté du script, ni sur $REPO_PRIMARY (GitLab) ou $REPO_FALLBACK (GitHub). Passez --source <dossier|archive.tar.gz|URL>."
     fi
   fi
   case "$SOURCE" in

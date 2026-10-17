@@ -1,4 +1,4 @@
-# ToutPVR 1.0.0-dev.1
+# ToutPVR 1.0.0-dev.2
 
 version de développement (non stabilisée).
 
@@ -6,6 +6,4 @@ version de développement (non stabilisée).
 - `updates/` : archives de mise à jour par plateforme.
 - `manifest.json` (signé) et `SHA256SUMS` : intégrité de cette version.
 
-Le site / portail de licences est sur la branche `website` (finales) ou `website-dev` (développement).
-
-Licence commerciale : `LICENSE-COMMERCIAL.md`. Seuls des binaires et du code obscurci sont diffusés.
+Licence commerciale : `LICENSE-COMMERCIAL.md`. Seuls des binaires sont diffusés.

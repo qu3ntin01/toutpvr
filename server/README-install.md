@@ -1,4 +1,4 @@
-# ToutPVR 1.0.0-dev.1 — installation
+# ToutPVR 1.0.0-dev.2 — installation
 
 Cette distribution contient le serveur **compilé** (modules natifs, panneau minifié et obscurci) sous forme de roues Python
 dans `wheels/`. Python pris en charge : 3.11, 3.12 (roues `cpXY` correspondantes). Aucune source lisible n'est fournie.
@@ -7,6 +7,14 @@ Contenu : `wheels/` · `install.sh` (Linux) · `install.ps1` / `install.bat` (Wi
 `docker-compose.yml` · `.env.example` · `requirements.txt` · `LICENSE-COMMERCIAL.md` · `BUILD-INFO.json` (empreintes sha256).
 
 ## Linux (Debian, Ubuntu, RHEL/Alma/Rocky, Fedora, openSUSE, Arch, Alpine…)
+
+Sans rien télécharger avant (GitLab `repo.qu3ntin.com`, GitHub en secours ; `--channel dev` pour la version de développement) :
+
+```bash
+curl -fsSL https://repo.qu3ntin.com/toutpvr/toutpvr/-/raw/main/server/install.sh | sudo bash -s -- --yes --port 8080
+```
+
+Depuis cette arborescence :
 
 ```bash
 sudo bash install.sh --yes --port 8080 --admin-password 'MotDePasseSolide!'
@@ -35,5 +43,5 @@ docker compose up -d     # construit l'image depuis wheels/ puis démarre sur ht
 
 ## Vérification
 
-`toutpvr --version` doit afficher `1.0.0-dev.1`, `GET /health` renvoie la même version. Les empreintes de chaque fichier
+`toutpvr --version` doit afficher `1.0.0-dev.2`, `GET /health` renvoie la même version. Les empreintes de chaque fichier
 sont dans `BUILD-INFO.json`.

@@ -32,6 +32,8 @@ param(
   [string]$Db = 'sqlite',
   [string]$DbUrl = '',
   [string]$Source = '',
+  [ValidateSet('main','dev')]
+  [string]$Channel = 'main',
   [string]$Prefix = "$env:ProgramFiles\ToutPVR",
   [string]$DataDir = "$env:ProgramData\ToutPVR",
   [switch]$NoService,
@@ -166,7 +168,18 @@ function Resolve-Source {
     if ($hasWheels -or ((Test-Path (Join-Path $PSScriptRoot 'pyproject.toml')) -and (Test-Path (Join-Path $PSScriptRoot 'toutpvr')))) {
       $script:Source = $PSScriptRoot
     } else {
-      Fail "Aucune source trouvée : lancez le script depuis le dossier server\ (ou l'arbre de diffusion contenant wheels\) ou passez -Source <dossier|archive.tar.gz|URL>."
+      # Aucune source locale : dernière version du dépôt de diffusion, GitLab (repo.qu3ntin.com) d'abord, GitHub en secours.
+      $primary  = if ($env:TP_REPO_URL) { $env:TP_REPO_URL } else { 'https://repo.qu3ntin.com/toutpvr/toutpvr' }
+      $fallback = if ($env:TP_REPO_FALLBACK_URL) { $env:TP_REPO_FALLBACK_URL } else { 'https://github.com/qu3ntin01/toutpvr' }
+      $candidates = @("$primary/-/archive/$Channel/toutpvr-$Channel.tar.gz", "$fallback/archive/refs/heads/$Channel.tar.gz")
+      $found = $null
+      foreach ($u in $candidates) {
+        if ($DryRun) { $found = $u; break }
+        try { Invoke-WebRequest -Uri $u -Method Head -UseBasicParsing -TimeoutSec 20 | Out-Null; $found = $u; break }
+        catch { Write-Warn "Dépôt injoignable : $u" }
+      }
+      if (-not $found) { Fail "Aucune source trouvée : ni à côté du script, ni sur $primary (GitLab) ou $fallback (GitHub). Passez -Source <dossier|archive.tar.gz|URL>." }
+      $script:Source = $found
     }
   }
   if ($Source -match '^https?://') {

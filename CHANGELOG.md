@@ -1,6 +1,6 @@
-# ToutPVR 1.0.0-dev.1
+# ToutPVR 1.0.0-dev.2
 
-Première version de développement : serveur compilé, panneau, site obscurci, 7 thèmes, IA locale (Ollama).
+Téléchargement depuis repo.qu3ntin.com (GitLab, GitHub en secours) avec --channel ; mot de passe 10 caractères minimum.
 
 ## [1.0.0]
 - Première version : serveur NVR avec panneau web Aurora Glass en 20 langues.
