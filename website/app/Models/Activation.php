@@ -1,1 +1,0 @@
-<?php declare(strict_types=1);namespace App\Models;final class Activation extends Model{protected static string $table='activations';protected static bool $timestamps=false;public static function find_(int $n,string $f):?array{return static::query()->where('license_id',$n)->where('machine_id',$f)->first();}}

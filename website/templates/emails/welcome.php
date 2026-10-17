@@ -1,4 +1,0 @@
-<h1><?php echo e(t('email.welcome.title',['name'=>$user['name']?:$user['email']]));?></h1>
-<p><?php echo e(t('email.welcome.body'));?></p>
-<?php if(!empty($password)){?><p><?php echo e(t('email.welcome.temp_password'));?> <strong><?php echo e($password);?></strong></p><?php }if(!empty($invite_url)){?><p><a class="btn" href="<?php echo e($invite_url);?>"><?php echo e(t('email.welcome.set_password'));?></a></p><?php }if(!empty($verify_url)){?><p><a class="btn" href="<?php echo e($verify_url);?>"><?php echo e(t('email.welcome.verify'));?></a></p><?php }?>
-<p><a href="<?php echo e(url('/account',$lang));?>"><?php echo e(t('nav.account'));?></a> · <a href="<?php echo e(url('/download',$lang));?>"><?php echo e(t('nav.download'));?></a> · <a href="<?php echo e(url('/docs',$lang));?>"><?php echo e(t('nav.docs'));?></a></p>

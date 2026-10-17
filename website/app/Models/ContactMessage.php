@@ -1,1 +1,0 @@
-<?php declare(strict_types=1);namespace App\Models;final class ContactMessage extends Model{protected static string $table='contact_messages';protected static bool $timestamps=false;}
