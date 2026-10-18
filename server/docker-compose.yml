@@ -1,5 +1,5 @@
 # ============================================================================
-#  ToutPVR 1.0.0-dev.2 — déploiement Docker (distribution compilée)
+#  ToutPVR 1.0.0-dev.3 — déploiement Docker (distribution compilée)
 #
 #  Démarrage rapide (SQLite, données dans un volume) :
 #      docker compose up -d
@@ -20,7 +20,7 @@ services:
       dockerfile: Dockerfile
       args:
         PYTHON_VERSION: ${TP_PYTHON_VERSION:-3.12}
-    image: toutpvr/server:${TP_VERSION:-1.0.0-dev.2}
+    image: toutpvr/server:${TP_VERSION:-1.0.0-dev.3}
     container_name: toutpvr
     restart: unless-stopped
     ports:

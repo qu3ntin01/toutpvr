@@ -1,6 +1,6 @@
-# ToutPVR 1.0.0-dev.2
+# ToutPVR 1.0.0-dev.3
 
-Téléchargement depuis repo.qu3ntin.com (GitLab, GitHub en secours) avec --channel ; mot de passe 10 caractères minimum.
+Logo ToutPVR intégré (panneau, éditeur, documentation), thème Aurora aux couleurs du logo, icônes et raccourcis des installeurs.
 
 ## [1.0.0]
 - Première version : serveur NVR avec panneau web Aurora Glass en 20 langues.

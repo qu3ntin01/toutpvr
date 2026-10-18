@@ -1,8 +1,8 @@
 # ============================================================================
-#  ToutPVR 1.0.0-dev.2 — image serveur (distribution compilée)
-#  Construction :  docker build -t toutpvr/server:1.0.0-dev.2 .
+#  ToutPVR 1.0.0-dev.3 — image serveur (distribution compilée)
+#  Construction :  docker build -t toutpvr/server:1.0.0-dev.3 .
 #  Python de l'image : ARG PYTHON_VERSION (roues fournies pour : 3.11, 3.12).
-#      docker build --build-arg PYTHON_VERSION=3.11 -t toutpvr/server:1.0.0-dev.2 .
+#      docker build --build-arg PYTHON_VERSION=3.11 -t toutpvr/server:1.0.0-dev.3 .
 #  Le paquet toutpvr est installé UNIQUEMENT depuis wheels/ (--no-index) ; ses dépendances viennent de PyPI.
 #  Architecture : les roues fournies sont linux x86_64 ; pour arm64 utilisez les roues aarch64 de la version.
 # ============================================================================

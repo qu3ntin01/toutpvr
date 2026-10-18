@@ -1,4 +1,4 @@
-# ToutPVR 1.0.0-dev.2
+# ToutPVR 1.0.0-dev.3
 
 version de développement (non stabilisée).
 

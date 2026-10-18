@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   ToutPVR — installeur Windows (Windows 10 / 11 / Server 2016+).
@@ -11,10 +11,14 @@
   - Crée une tâche planifiée « ToutPVR » (démarrage automatique, compte SYSTEM) ou un service NSSM si présent
   - Ouvre le port dans le pare-feu Windows
   - Ajoute le lanceur "toutpvr" au PATH
+  - Crée le dossier « ToutPVR » du menu Démarrer (Panneau, service, données, désinstallation) avec l'icône du logo,
+    et copie les icônes dans "<Prefix>\icons" (-NoShortcut pour s'en passer, -DesktopShortcut pour ajouter le bureau)
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File install.ps1
   powershell -ExecutionPolicy Bypass -File install.ps1 -Yes -Port 8080 -AdminPassword 'MonMotDePasse!' -License TP1-XXXXX-XXXXX-XXXXX-XXXXX
+  powershell -ExecutionPolicy Bypass -File install.ps1 -Yes -NoShortcut
+  powershell -ExecutionPolicy Bypass -File install.ps1 -Yes -DesktopShortcut
   powershell -ExecutionPolicy Bypass -File install.ps1 -Upgrade
   powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall -Purge
 #>
@@ -29,7 +33,7 @@ param(
   [string]$License = '',
   [string]$PortalUrl = 'https://toutpvr.example',
   [ValidateSet('sqlite','mysql')]
-  [string]$Db = 'sqlite',
+  [string]$Database = 'sqlite',   # (pas « -Db » : alias réservé de -Debug)
   [string]$DbUrl = '',
   [string]$Source = '',
   [ValidateSet('main','dev')]
@@ -39,6 +43,8 @@ param(
   [switch]$NoService,
   [switch]$NoFirewall,
   [switch]$NoFfmpeg,
+  [switch]$NoShortcut,
+  [switch]$DesktopShortcut,
   [switch]$Upgrade,
   [switch]$Uninstall,
   [switch]$Purge,
@@ -244,7 +250,7 @@ function Install-Package([string]$Python) {
     & $vpy -m pip install --quiet --upgrade pip wheel
     Install-ToutPvrPackage $vpy
     if ($LASTEXITCODE -ne 0) { throw "pip a échoué (code $LASTEXITCODE)" }
-    if ($Db -eq 'mysql') { & $vpy -m pip install --quiet --upgrade pymysql }
+    if ($Database -eq 'mysql') { & $vpy -m pip install --quiet --upgrade pymysql }
     if ($LASTEXITCODE -ne 0) { throw "pip a échoué (code $LASTEXITCODE)" }
     # Lanceur global
     @"
@@ -285,7 +291,7 @@ function Invoke-Configure {
     if (-not $AdminPassword) { $script:AdminPassword = New-RandomPassword; $script:GeneratedPassword = $true }
   }
   $args = @('install', '--yes', '--lang', $Lang, '--port', $Port, '--host', '0.0.0.0', '--data-dir', $DataDir,
-            '--admin-user', $AdminUser, '--admin-password', $AdminPassword, '--portal-url', $PortalUrl, '--db', $Db)
+            '--admin-user', $AdminUser, '--admin-password', $AdminPassword, '--portal-url', $PortalUrl, '--db', $Database)
   if ($DbUrl) { $args += @('--db-url', $DbUrl) }
   if ($License) { $args += @('--license', $License) }
   Invoke-Step "toutpvr install --yes ..." {
@@ -304,6 +310,8 @@ function Install-Service {
   Write-Step "Démarrage automatique"
   $exe = Join-Path $VenvDir 'Scripts\toutpvr.exe'
   $nssm = Get-Command nssm -ErrorAction SilentlyContinue
+  $script:ServiceMode = if ($nssm) { 'nssm' } else { 'task' }
+  $script:NssmPath = if ($nssm) { $nssm.Source } else { '' }
   Invoke-Step "Créer le service/tâche $TaskName" {
     if ($nssm) {
       & nssm stop $TaskName 2>$null | Out-Null
@@ -367,6 +375,7 @@ function Show-Summary {
   if ($script:GeneratedPassword) { Write-Host "  Mot de passe   : $AdminPassword  (généré — notez-le maintenant)" -ForegroundColor Yellow }
   Write-Host "  Configuration  : $ConfigFile"
   Write-Host "  Données        : $DataDir"
+  if (-not $NoShortcut) { Write-Host "  Raccourcis     : menu Démarrer > $Product$(if ($DesktopShortcut) { ' (et bureau)' })" }
   Write-Host "  Commande       : toutpvr --help   (ouvrir un nouveau terminal pour le PATH)"
   if (-not $NoService) { Write-Host "  Service        : Planificateur de tâches > $TaskName  (ou nssm status $TaskName)" }
   if (-not $License) { Write-Host "  Licence        : toutpvr license activate TP1-XXXXX-XXXXX-XXXXX-XXXXX" }
@@ -374,10 +383,229 @@ function Show-Summary {
 }
 
 # ---------------------------------------------------------------------------
+#  Icône et raccourcis (menu Démarrer, bureau en option)
+# ---------------------------------------------------------------------------
+# Choix techniques :
+#  - « Panneau » = fichier Internet (.url) : s'ouvre dans le navigateur PAR DÉFAUT, supporte IconFile=<.ico>,
+#    ne dépend d'aucun COM ni d'un chemin de navigateur ; c'est le raccourci le plus fiable.
+#  - Les autres raccourcis sont de vrais .lnk (WScript.Shell) avec IconLocation = toutpvr.ico ; ceux qui touchent au
+#    service ou désinstallent portent l'indicateur « Exécuter en tant qu'administrateur » (bit 0x20 de l'octet 0x15
+#    de l'en-tête .lnk), donc l'UAC est demandé au clic.
+#  - L'icône d'un service Windows ne peut pas être définie : rien n'est fait de ce côté.
+#  - Toutes les fonctions « Get-* / New-*Content / Set-RunAsAdminFlag / Test-* » sont pures (aucun accès à Windows) :
+#    elles sont testées sous pwsh sur Linux ; seules New-ShortcutFile et Install-/Remove-Shortcuts touchent le système.
+$script:ServiceMode = ''     # '', 'task' ou 'nssm' : renseigné par Install-Service (ou détecté lors d'une mise à niveau)
+$script:NssmPath = ''
+
+function Get-StartMenuRoot {
+  $p = [Environment]::GetFolderPath('CommonPrograms')
+  if (-not $p) { $p = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs' }
+  return $p
+}
+
+function Get-DesktopRoot {
+  $p = [Environment]::GetFolderPath('CommonDesktopDirectory')
+  if (-not $p) { $p = Join-Path $env:Public 'Desktop' }
+  return $p
+}
+
+# Dossier contenant toutpvr.ico : icons\ de la source, du script (arbre de diffusion ou server\icons\), kit de marque du dépôt.
+function Find-IconDir([string[]]$Candidates) {
+  foreach ($d in $Candidates) {
+    if ($d -and (Test-Path -LiteralPath (Join-Path $d 'toutpvr.ico'))) { return $d }
+  }
+  return $null
+}
+
+function New-UrlShortcutContent([string]$Url, [string]$IconFile) {
+  return "[InternetShortcut]`r`nURL=$Url`r`nIconIndex=0`r`nIconFile=$IconFile`r`n"
+}
+
+# Active « Exécuter en tant qu'administrateur » dans les octets d'un fichier .lnk (LinkFlags, octet 0x15, bit 0x20).
+function Set-RunAsAdminFlag([byte[]]$Bytes) {
+  if ($Bytes.Length -lt 0x4C) { throw "Fichier .lnk invalide (en-tête trop court)" }
+  $Bytes[0x15] = $Bytes[0x15] -bor 0x20
+  return ,$Bytes
+}
+
+# Le script exécuté se trouve-t-il dans le dossier d'installation (qu'une désinstallation va supprimer) ?
+function Test-RunningFromPrefix([string]$ScriptPath, [string]$InstallDir) {
+  if (-not $ScriptPath -or -not $InstallDir) { return $false }
+  $root = $InstallDir.TrimEnd('\', '/') + '\'
+  return $ScriptPath.Replace('/', '\').StartsWith($root, [StringComparison]::OrdinalIgnoreCase)
+}
+
+# Extrait le port de la configuration YAML (ligne « port: 8080 ») ; 0 si absent.
+function Get-ConfiguredPort([string]$YamlText) {
+  if ($YamlText -match '(?m)^port:\s*(\d{1,5})\s*$') { return [int]$Matches[1] }
+  return 0
+}
+
+# Script de pilotage du service (démarrer / arrêter / redémarrer), exécuté par les raccourcis du menu Démarrer.
+function Get-ServiceControlScript([string]$Mode, [string]$Name, [string]$NssmExe) {
+  if ($Mode -eq 'nssm') {
+    $start = "`"$NssmExe`" start $Name"; $stop = "`"$NssmExe`" stop $Name"
+  } else {
+    $start = "schtasks /Run /TN `"$Name`""; $stop = "schtasks /End /TN `"$Name`""
+  }
+  $lines = @(
+    '@echo off',
+    "rem Pilotage du service $Name - genere par install.ps1 (usage : toutpvr-service.cmd start|stop|restart)",
+    'if /i "%~1"=="start" goto do_start',
+    'if /i "%~1"=="stop" goto do_stop',
+    'if /i "%~1"=="restart" goto do_restart',
+    'echo Usage : %~nx0 start^|stop^|restart',
+    'exit /b 1',
+    ':do_start',
+    $start,
+    'goto done',
+    ':do_stop',
+    $stop,
+    'goto done',
+    ':do_restart',
+    "$stop >nul 2>&1",
+    'timeout /t 3 /nobreak >nul',
+    $start,
+    ':done',
+    'timeout /t 3 >nul'
+  )
+  return ($lines -join "`r`n") + "`r`n"
+}
+
+# Arguments de powershell.exe pour le raccourci de désinstallation (copie du script dans <Prefix>\uninstall.ps1).
+# Concaténation pure de chemins Windows (Join-Path vérifie l'existence du lecteur, inutile ici).
+function Join-WinPath([string]$Base, [string]$Child) { return $Base.TrimEnd('\', '/') + '\' + $Child }
+
+function Get-UninstallArguments([string]$InstallDir, [string]$Data) {
+  $script = Join-WinPath $InstallDir 'uninstall.ps1'
+  return "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$script`" -Uninstall -Prefix `"$InstallDir`" -DataDir `"$Data`""
+}
+
+# Liste des raccourcis à créer. Chaque élément : Path, Kind (url|lnk), Target, Arguments, WorkingDirectory, IconFile,
+# Description, RunAsAdmin. Fonction pure : ne touche à rien.
+function Get-ShortcutSpecs {
+  param(
+    [string]$InstallDir, [string]$Data, [int]$ListenPort, [string]$MenuDir, [string]$DesktopDir, [string]$IconFile,
+    [bool]$WithService, [bool]$WithUninstall, [bool]$WithDesktop
+  )
+  $dash = [string][char]0x2014
+  $url = "http://localhost:$ListenPort/"
+  $specs = @()
+  $specs += [pscustomobject]@{ Path = (Join-WinPath $MenuDir "ToutPVR $dash Panneau.url"); Kind = 'url'; Target = $url; Arguments = ''
+                               WorkingDirectory = ''; IconFile = $IconFile; Description = 'Ouvrir le panneau ToutPVR'; RunAsAdmin = $false }
+  if ($WithService) {
+    $ctl = Join-WinPath $InstallDir 'toutpvr-service.cmd'
+    foreach ($a in @(@('start', 'Démarrer le service ToutPVR'), @('stop', 'Arrêter le service ToutPVR'), @('restart', 'Redémarrer le service ToutPVR'))) {
+      $specs += [pscustomobject]@{ Path = (Join-WinPath $MenuDir "$($a[1]).lnk"); Kind = 'lnk'; Target = $ctl; Arguments = $a[0]
+                                   WorkingDirectory = $InstallDir; IconFile = $IconFile; Description = $a[1]; RunAsAdmin = $true }
+    }
+  }
+  $specs += [pscustomobject]@{ Path = (Join-WinPath $MenuDir 'Données et journaux ToutPVR.lnk'); Kind = 'lnk'; Target = $Data; Arguments = ''
+                               WorkingDirectory = $Data; IconFile = $IconFile; Description = 'Ouvrir le dossier des données et des journaux'; RunAsAdmin = $false }
+  if ($WithUninstall) {
+    $specs += [pscustomobject]@{ Path = (Join-WinPath $MenuDir 'Désinstaller ToutPVR.lnk'); Kind = 'lnk'
+                                 Target = (Join-WinPath $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe')
+                                 Arguments = (Get-UninstallArguments $InstallDir $Data)
+                                 WorkingDirectory = (Join-WinPath $env:SystemRoot 'System32'); IconFile = $IconFile
+                                 Description = 'Désinstaller ToutPVR (données conservées)'; RunAsAdmin = $true }
+  }
+  if ($WithDesktop) {
+    $specs += [pscustomobject]@{ Path = (Join-WinPath $DesktopDir 'ToutPVR.url'); Kind = 'url'; Target = $url; Arguments = ''
+                                 WorkingDirectory = ''; IconFile = $IconFile; Description = 'Ouvrir le panneau ToutPVR'; RunAsAdmin = $false }
+  }
+  return $specs
+}
+
+# Crée un raccourci décrit par Get-ShortcutSpecs (Windows uniquement : COM WScript.Shell pour les .lnk).
+function New-ShortcutFile($Spec) {
+  New-Item -ItemType Directory -Path (Split-Path $Spec.Path -Parent) -Force | Out-Null
+  if ($Spec.Kind -eq 'url') {
+    [IO.File]::WriteAllText($Spec.Path, (New-UrlShortcutContent $Spec.Target $Spec.IconFile), [Text.Encoding]::Default)
+    return
+  }
+  $shell = New-Object -ComObject WScript.Shell
+  $lnk = $shell.CreateShortcut($Spec.Path)
+  $lnk.TargetPath = $Spec.Target
+  if ($Spec.Arguments) { $lnk.Arguments = $Spec.Arguments }
+  if ($Spec.WorkingDirectory) { $lnk.WorkingDirectory = $Spec.WorkingDirectory }
+  $lnk.IconLocation = "$($Spec.IconFile),0"
+  $lnk.Description = $Spec.Description
+  $lnk.Save()
+  [void][Runtime.InteropServices.Marshal]::ReleaseComObject($lnk)
+  [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell)
+  if ($Spec.RunAsAdmin) {
+    [IO.File]::WriteAllBytes($Spec.Path, (Set-RunAsAdminFlag ([IO.File]::ReadAllBytes($Spec.Path))))
+  }
+}
+
+function Install-Shortcuts {
+  if ($NoShortcut) { Write-Info "Raccourcis non créés (-NoShortcut)."; return }
+  Write-Step "Icône et raccourcis"
+  $iconDir = Find-IconDir @($(if ($Source) { Join-Path $Source 'icons' }), (Join-Path $PSScriptRoot 'icons'), (Join-Path $PSScriptRoot '..\brand\assets\app'))
+  if (-not $iconDir) { Write-Warn "toutpvr.ico introuvable (icons\ ou ..\brand\assets\app\) : raccourcis non créés."; return }
+  $iconFile = Join-Path $Prefix 'icons\toutpvr.ico'
+  $menuDir = Join-Path (Get-StartMenuRoot) $Product
+  $scriptPath = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $PSScriptRoot 'install.ps1' }
+  $withUninstall = [bool](Test-Path -LiteralPath $scriptPath)
+  $specs = Get-ShortcutSpecs -InstallDir $Prefix -Data $DataDir -ListenPort $Port -MenuDir $menuDir -DesktopDir (Get-DesktopRoot) -IconFile $iconFile `
+            -WithService ([bool]$script:ServiceMode) -WithUninstall $withUninstall -WithDesktop ([bool]$DesktopShortcut)
+  Invoke-Step "Copier les icônes (toutpvr.ico, .icns, .png) dans $Prefix\icons" {
+    New-Item -ItemType Directory -Path (Join-Path $Prefix 'icons') -Force | Out-Null
+    foreach ($n in @('toutpvr.ico', 'toutpvr.icns', 'toutpvr-256.png', 'toutpvr-512.png')) {
+      $src = Join-Path $iconDir $n
+      if (-not (Test-Path -LiteralPath $src) -and $n -like '*.png') { $src = Join-Path $iconDir ('app-icon-light-' + $n.Substring(8)) }
+      if (Test-Path -LiteralPath $src) { Copy-Item -LiteralPath $src -Destination (Join-Path $Prefix "icons\$n") -Force }
+    }
+  }
+  if ($script:ServiceMode) {
+    Invoke-Step "Écrire $Prefix\toutpvr-service.cmd (démarrer / arrêter / redémarrer, mode $($script:ServiceMode))" {
+      Set-Content -Path (Join-Path $Prefix 'toutpvr-service.cmd') -Value (Get-ServiceControlScript $script:ServiceMode $TaskName $script:NssmPath) -Encoding ASCII
+    }
+  }
+  if ($withUninstall) {
+    Invoke-Step "Copier le script dans $Prefix\uninstall.ps1 (pour le raccourci de désinstallation)" {
+      Copy-Item -LiteralPath $scriptPath -Destination (Join-Path $Prefix 'uninstall.ps1') -Force
+    }
+  }
+  foreach ($s in $specs) {
+    $desc = ("Raccourci $($s.Path)  ->  $($s.Target) $($s.Arguments)").TrimEnd()
+    Invoke-Step $desc {
+      try { New-ShortcutFile $s } catch { Write-Warn "Raccourci non créé ($($s.Path)) : $($_.Exception.Message)" }
+    }
+  }
+  if (-not $DryRun) { Write-Ok "Raccourcis créés : menu Démarrer > $Product$(if ($DesktopShortcut) { ' et bureau' })" }
+}
+
+function Remove-Shortcuts {
+  $menuDir = Join-Path (Get-StartMenuRoot) $Product
+  $desktopUrl = Join-Path (Get-DesktopRoot) 'ToutPVR.url'
+  Invoke-Step "Supprimer le dossier $menuDir et $desktopUrl" {
+    Remove-Item -LiteralPath $menuDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $desktopUrl -Force -ErrorAction SilentlyContinue
+  }
+}
+
+# ---------------------------------------------------------------------------
 #  Désinstallation / mise à niveau
 # ---------------------------------------------------------------------------
 function Invoke-Uninstall {
   Write-Step "Désinstallation de $Product"
+  if ($DryRun) {
+    Write-Host "  (dry-run) Arrêter et supprimer la tâche/service $TaskName, la règle de pare-feu et le PATH" -ForegroundColor DarkGray
+    Remove-Shortcuts
+    Write-Host "  (dry-run) Supprimer $Prefix$(if ($Purge) { " et $DataDir" })" -ForegroundColor DarkGray
+    return
+  }
+  # Le script (raccourci « Désinstaller ») peut se trouver dans $Prefix, que l'on va supprimer : on poursuit depuis une copie temporaire.
+  if (Test-RunningFromPrefix $PSCommandPath $Prefix) {
+    $tmpScript = Join-Path $env:TEMP ("toutpvr-uninstall-" + [guid]::NewGuid().ToString('N') + '.ps1')
+    Copy-Item -LiteralPath $PSCommandPath -Destination $tmpScript -Force
+    $fwd = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $tmpScript, '-Uninstall', '-Prefix', $Prefix, '-DataDir', $DataDir)
+    if ($Purge) { $fwd += '-Purge' }
+    if ($Yes) { $fwd += '-Yes' }
+    & powershell.exe @fwd
+    exit $LASTEXITCODE
+  }
   if (-not $Yes) {
     $ans = Read-Host "Confirmer la désinstallation$(if ($Purge) { ' AVEC suppression des données' }) ? [o/N]"
     if ($ans -notmatch '^[oOyY]$') { Write-Host 'Annulé.'; exit 0 }
@@ -389,6 +617,7 @@ function Invoke-Uninstall {
   Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
   Remove-NetFirewallRule -DisplayName 'ToutPVR' -ErrorAction SilentlyContinue
   Get-Process -Name toutpvr -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  Remove-Shortcuts
   if (Test-Path $Prefix) { Remove-Item -Recurse -Force $Prefix }
   $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
   [Environment]::SetEnvironmentVariable('Path', (($machinePath -split ';' | Where-Object { $_ -and $_ -ne $Prefix }) -join ';'), 'Machine')
@@ -400,6 +629,7 @@ function Invoke-Uninstall {
   } else {
     Write-Ok "Programme supprimé. Données et configuration conservées dans $DataDir (-Purge pour les supprimer)."
   }
+  if ($PSCommandPath -and ((Split-Path $PSCommandPath -Leaf) -like 'toutpvr-uninstall-*.ps1')) { Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue }
 }
 
 function Invoke-Upgrade {
@@ -414,6 +644,11 @@ function Invoke-Upgrade {
   try { & $exe stop 2>$null | Out-Null } catch { }
   Install-ToutPvrPackage (Join-Path $VenvDir 'Scripts\python.exe')
   if ($running) { Start-ScheduledTask -TaskName $TaskName; Test-Health }
+  # Les anciennes installations gagnent l'icône et les raccourcis ; le port vient de la configuration.
+  if (Test-Path $ConfigFile) { $p = Get-ConfiguredPort (Get-Content -Raw -LiteralPath $ConfigFile); if ($p -gt 0) { $script:Port = $p } }
+  $nssmCmd = Get-Command nssm -ErrorAction SilentlyContinue
+  if ($running) { $script:ServiceMode = 'task' } elseif ($nssmCmd) { $script:ServiceMode = 'nssm'; $script:NssmPath = $nssmCmd.Source }
+  Install-Shortcuts
   Write-Ok "Mise à niveau terminée."
 }
 
@@ -443,5 +678,6 @@ Install-Package -Python $python
 Invoke-Configure
 Install-Service
 Open-Firewall
+Install-Shortcuts
 Test-Health
 Show-Summary

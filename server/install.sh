@@ -23,7 +23,12 @@
 #
 #  Variables d'environnement acceptées : TP_SOURCE (dossier ou archive .tar.gz),
 #  TP_PREFIX, TP_PORT, TP_LANG, TP_ADMIN_USER, TP_ADMIN_PASSWORD, TP_LICENSE, TP_PORTAL_URL,
-#  TP_CONFIG_DIR, TP_DATA_DIR, TP_BIN_LINK.
+#  TP_CONFIG_DIR, TP_DATA_DIR, TP_BIN_LINK, TP_DESKTOP_DIR.
+#
+#  Icône et lanceur de bureau : sur un poste avec environnement graphique, l'installeur ajoute l'entrée « ToutPVR »
+#  au menu des applications (/usr/share/applications/toutpvr.desktop, icônes hicolor) ; ignorée sur un serveur sans
+#  interface, ou avec --no-desktop. Les icônes viennent de icons/ (arbre de diffusion ou server/icons/) ou du kit de
+#  marque (../brand/assets/app/ dans l'arbre source du dépôt).
 # ============================================================================
 set -euo pipefail
 
@@ -53,6 +58,8 @@ WANT_SERVICE=1
 WANT_FIREWALL=1
 WANT_FFMPEG=1
 WANT_SYSTEM_DEPS=1
+WANT_DESKTOP=1
+DESKTOP_DIR="${TP_DESKTOP_DIR:-}"   # racine « share » (applications/ et icons/hicolor/) ; vide = /usr/share avec détection du bureau
 WHEEL_DIR=""
 WHEEL_HINT=""       # dossier wheels/ repéré avant le choix de Python (arbre de diffusion)
 MODE="install"          # install | upgrade | uninstall
@@ -102,6 +109,8 @@ Options principales :
   --no-service              Ne pas créer le service systemd / OpenRC
   --no-firewall             Ne pas ouvrir le port dans firewalld / ufw
   --no-ffmpeg               Ne pas installer ffmpeg
+  --no-desktop              Ne pas créer l'entrée de menu « ToutPVR » ni installer les icônes (serveur sans interface)
+  --desktop-dir DIR         Racine « share » de l'entrée de menu et des icônes (défaut : /usr/share, si un bureau est détecté)
   --upgrade                 Mettre à niveau une installation existante (conserve config et données)
   --uninstall [--purge]     Désinstaller (--purge supprime aussi les données et la configuration)
   --dry-run                 Afficher les actions sans les exécuter
@@ -134,6 +143,8 @@ while [ $# -gt 0 ]; do
     --no-service) WANT_SERVICE=0 ;;
     --no-firewall) WANT_FIREWALL=0 ;;
     --no-ffmpeg) WANT_FFMPEG=0 ;;
+    --no-desktop) WANT_DESKTOP=0 ;;
+    --desktop-dir) DESKTOP_DIR="$2"; shift ;;
     --upgrade) MODE="upgrade" ;;
     --uninstall) MODE="uninstall" ;;
     --purge) PURGE=1 ;;
@@ -146,6 +157,7 @@ while [ $# -gt 0 ]; do
 done
 
 CONFIG_FILE="$CONFIG_DIR/config.yaml"
+DESKTOP_ROOT="${DESKTOP_DIR:-/usr/share}"
 
 run() {
   if [ "$DRY_RUN" = 1 ]; then printf "%b  \$ %s%b\n" "$C_DIM" "$*" "$C_RESET"; return 0; fi
@@ -490,6 +502,96 @@ configure() {
 }
 
 # ----------------------------------------------------------------------------
+#  Icône et entrée de menu (postes de travail uniquement)
+# ----------------------------------------------------------------------------
+# Chemin d'une icône ($1 : toutpvr.ico, toutpvr.icns, toutpvr-256.png, toutpvr-512.png) : dossier icons/ de la source,
+# du script (arbre de diffusion ou server/icons/), sinon kit de marque du dépôt (../brand/assets/app/).
+icon_path() {
+  local name="$1" d alt="$1"
+  case "$name" in toutpvr-*.png) alt="app-icon-light-${name#toutpvr-}" ;; *) ;; esac
+  for d in "${SOURCE:+$SOURCE/icons}" "$SCRIPT_DIR/icons"; do
+    if [ -n "$d" ] && [ -f "$d/$name" ]; then printf '%s\n' "$d/$name"; return 0; fi
+  done
+  d="$SCRIPT_DIR/../brand/assets/app"
+  if [ -f "$d/$alt" ]; then printf '%s\n' "$d/$alt"; return 0; fi
+  return 1
+}
+
+# Un bureau est-il présent ? Oui si --desktop-dir est fourni, sinon si /usr/share/applications existe avec xdg-open ou une session graphique.
+desktop_available() {
+  [ -n "$DESKTOP_DIR" ] && return 0
+  [ -d /usr/share/applications ] || return 1
+  command -v xdg-open >/dev/null 2>&1 || [ -d /usr/share/xsessions ] || [ -d /usr/share/wayland-sessions ]
+}
+
+# Contenu du fichier .desktop (spécification freedesktop.org) ; $1 = port.
+desktop_entry() {
+  cat <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=$PRODUCT
+GenericName=Video surveillance
+GenericName[fr]=Vidéosurveillance
+Comment=Open the $PRODUCT web panel
+Comment[fr]=Ouvrir le panneau web $PRODUCT
+Exec=xdg-open http://localhost:$1
+Icon=toutpvr
+Terminal=false
+Categories=Network;Security;
+Keywords=ToutPVR;camera;cameras;surveillance;cctv;nvr;pvr;video;
+StartupNotify=false
+EOF
+}
+
+refresh_desktop_caches() {
+  if command -v update-desktop-database >/dev/null 2>&1 && [ -d "$DESKTOP_ROOT/applications" ]; then
+    run update-desktop-database "$DESKTOP_ROOT/applications" >/dev/null 2>&1 || true
+  fi
+  if command -v gtk-update-icon-cache >/dev/null 2>&1 && [ -f "$DESKTOP_ROOT/icons/hicolor/index.theme" ]; then
+    run gtk-update-icon-cache -f -t "$DESKTOP_ROOT/icons/hicolor" >/dev/null 2>&1 || true
+  fi
+}
+
+install_desktop() {
+  [ "$WANT_DESKTOP" = 1 ] || { log "Entrée de menu non créée (--no-desktop)."; return 0; }
+  if ! desktop_available; then log "Pas d'environnement de bureau détecté : entrée de menu ignorée."; return 0; fi
+  step "Icône et entrée de menu"
+  local name size src icons_ok=1 apps="$DESKTOP_ROOT/applications"
+  for name in toutpvr.ico toutpvr.icns toutpvr-256.png toutpvr-512.png; do
+    icon_path "$name" >/dev/null || icons_ok=0
+  done
+  if [ "$icons_ok" = 0 ]; then warn "Icônes introuvables (icons/ ou ../brand/assets/app/) : entrée de menu ignorée."; return 0; fi
+  # Jeu d'icônes à côté de l'installation (même disposition que Windows : <préfixe>/icons).
+  run mkdir -p "$PREFIX/icons"
+  for name in toutpvr.ico toutpvr.icns toutpvr-256.png toutpvr-512.png; do
+    src="$(icon_path "$name")"; run install -m 644 "$src" "$PREFIX/icons/$name"
+  done
+  for size in 256 512; do
+    run mkdir -p "$DESKTOP_ROOT/icons/hicolor/${size}x${size}/apps"
+    src="$(icon_path "toutpvr-$size.png")"
+    run install -m 644 "$src" "$DESKTOP_ROOT/icons/hicolor/${size}x${size}/apps/toutpvr.png"
+  done
+  run mkdir -p "$apps"
+  if [ "$DRY_RUN" = 0 ]; then
+    desktop_entry "$PORT" > "$apps/toutpvr.desktop"
+    chmod 644 "$apps/toutpvr.desktop"
+  else
+    log "(écriture de $apps/toutpvr.desktop : Exec=xdg-open http://localhost:$PORT, Icon=toutpvr)"
+  fi
+  refresh_desktop_caches
+  ok "Entrée de menu « $PRODUCT » installée ($apps/toutpvr.desktop)"
+}
+
+remove_desktop() {
+  local f
+  for f in "$DESKTOP_ROOT/applications/toutpvr.desktop" "$DESKTOP_ROOT/icons/hicolor/256x256/apps/toutpvr.png" "$DESKTOP_ROOT/icons/hicolor/512x512/apps/toutpvr.png"; do
+    if [ -e "$f" ]; then run rm -f "$f"; fi
+  done
+  refresh_desktop_caches
+}
+
+# ----------------------------------------------------------------------------
 #  Service
 # ----------------------------------------------------------------------------
 install_service() {
@@ -595,6 +697,7 @@ summary() {
   printf "  Configuration  : %s\n" "$CONFIG_FILE"
   printf "  Données        : %s\n" "$DATA_DIR"
   printf "  Commande       : toutpvr --help   (status, stop, user, license, update, backup, doctor)\n"
+  if [ "$WANT_DESKTOP" = 1 ] && [ -f "$DESKTOP_ROOT/applications/toutpvr.desktop" ]; then printf "  Menu           : Applications > %s (icône du logo)\n" "$PRODUCT"; fi
   if [ "$WANT_SERVICE" = 1 ]; then printf "  Service        : systemctl status toutpvr · journalctl -u toutpvr -f\n"; fi
   if [ -z "$LICENSE_KEY" ]; then printf "  Licence        : toutpvr license activate TP1-XXXXX-XXXXX-XXXXX-XXXXX\n"; fi
   echo
@@ -616,6 +719,7 @@ do_uninstall() {
   fi
   if [ -f /etc/init.d/toutpvr ]; then run rc-service toutpvr stop || true; run rc-update del toutpvr default || true; run rm -f /etc/init.d/toutpvr; fi
   run rm -f "$BIN_LINK"
+  remove_desktop
   run rm -rf "$PREFIX"
   if [ "$PURGE" = 1 ]; then
     run rm -rf "$CONFIG_DIR" "$DATA_DIR"
@@ -636,6 +740,10 @@ do_upgrade() {
   run env TP_CONFIG="$CONFIG_FILE" TP_DATA_DIR="$DATA_DIR" "$PREFIX/venv/bin/toutpvr" backup || warn "Sauvegarde impossible (poursuite)."
   pip_install_package
   run chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
+  # Rafraîchit l'entrée de menu (port lu dans la configuration) ; les anciennes installations gagnent l'icône.
+  local cfg_port; cfg_port="$(sed -n 's/^port:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$CONFIG_FILE" 2>/dev/null | head -n1 || true)"
+  if [ -n "$cfg_port" ]; then PORT="$cfg_port"; fi
+  install_desktop
   if [ "$had_service" = 1 ]; then run systemctl start toutpvr; health_check; fi
   ok "Mise à niveau terminée : $("$PREFIX/venv/bin/toutpvr" --version 2>/dev/null || true)"
 }
@@ -656,5 +764,6 @@ install_package
 configure
 install_service
 open_firewall
+install_desktop
 health_check
 summary
